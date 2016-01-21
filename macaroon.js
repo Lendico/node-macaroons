@@ -56,15 +56,16 @@ function macaroon() {
   // The root key must be an sjcl bitArray.
   // TODO accept string, Buffer, for root key?
   exports.newMacaroon = function(rootKey, id, loc) {
-    var m = new Macaroon();
-    m._caveats = [];
     asserts.assertString(loc, 'macaroon location');
     asserts.assertString(id, 'macaroon identifier');
     asserts.assertUint8Array(rootKey, 'macaroon root key');
-    rootKey = hash.makeKey(rootKey);
+
+    var m = new Macaroon();
+    m._caveats = [];
+    var hashedRootKey = hash.makeKey(rootKey);
     m._location = loc;
     m._identifier = id;
-    m._signature = hash.keyedHash(rootKey, sjcl.codec.utf8String.toBits(id));
+    m._signature = hash.keyedHash(hashedRootKey, sjcl.codec.utf8String.toBits(id));
     return m;
   };
 
@@ -72,36 +73,39 @@ function macaroon() {
   // JSON to a macaroon. It also accepts an array of objects,
   // returning the resulting array of macaroons.
   exports.import = function(obj) {
+  
     if (obj.constructor === Array) {
       return obj.map(function(value) {
         return exports.import(value);
       });
     }
+    asserts.assertString(obj.location, 'macaroon location');
+    asserts.assertString(obj.identifier, 'macaroon identifier');
+
     var m = new Macaroon();
     m._signature = sjcl.codec.hex.toBits(obj.signature);
-    asserts.assertString(obj.location, 'macaroon location');
     m._location = obj.location;
-    asserts.assertString(obj.identifier, 'macaroon identifier');
     m._identifier = obj.identifier;
-
     m._caveats = obj.caveats.map(function(jsonCav) {
-        var cav = {
-            _identifier: null,
-            _location: null,
-            _vid: null,
-        };
-        if (jsonCav.cl !== undefined) {
-            asserts.assertString(jsonCav.cl, 'caveat location');
-            cav._location = jsonCav.cl;
-        }
-        if (jsonCav.vid !== undefined) {
-            asserts.assertString(jsonCav.vid, 'caveat verification id');
-            // Use URL encoding.
-            cav._vid = sjcl.codec.base64.toBits(jsonCav.vid, true);
-        }
-        asserts.assertString(jsonCav.cid, 'caveat id');
-        cav._identifier = jsonCav.cid;
-        return cav;
+      asserts.assertString(jsonCav.cid, 'caveat id');
+
+      var cav = {
+        _identifier: null,
+        _location: null,
+        _vid: null,
+      };
+      if (jsonCav.cl !== undefined) {
+        asserts.assertString(jsonCav.cl, 'caveat location');
+        cav._location = jsonCav.cl;
+      }
+      if (jsonCav.vid !== undefined) {
+        asserts.assertString(jsonCav.vid, 'caveat verification id');
+        // Use URL encoding.
+        cav._vid = sjcl.codec.base64.toBits(jsonCav.vid, true);
+      }
+      
+      cav._identifier = jsonCav.cid;
+      return cav;
     });
     return m;
   };
@@ -110,25 +114,25 @@ function macaroon() {
   // to the exported object form, suitable for encoding as JSON.
   exports.export = function(m) {
     if (m.constructor === Array) {
-        return m.map(function(value) {
-            return exports.export(value);
-        });
+      return m.map(function(value) {
+        return exports.export(value);
+      });
     }
     return {
-        location: m._location,
-        identifier: m._identifier,
-        signature: sjcl.codec.hex.fromBits(m._signature),
-        caveats: m._caveats.map(function(cav) {
-            var cavObj = {
-                cid: cav._identifier,
-            };
-            if (cav._vid !== null) {
-                // Use URL encoding and do not append "=" characters.
-                cavObj.vid = sjcl.codec.base64.fromBits(cav._vid, true, true);
-                cavObj.cl = cav._location;
-            }
-            return cavObj;
-        })
+      location: m._location,
+      identifier: m._identifier,
+      signature: sjcl.codec.hex.fromBits(m._signature),
+      caveats: m._caveats.map(function(cav) {
+        var cavObj = {
+          cid: cav._identifier,
+        };
+        if (cav._vid !== null) {
+          // Use URL encoding and do not append "=" characters.
+          cavObj.vid = sjcl.codec.base64.fromBits(cav._vid, true, true);
+          cavObj.cl = cav._location;
+        }
+        return cavObj;
+      })
     };
   };
 
@@ -157,9 +161,7 @@ function macaroon() {
     var firstPartyLocation = m.location();
     var dischargeCaveats;
     var dischargedCallback = function(dm) {
-      if (errorCalled) {
-        return;
-      }
+      if (errorCalled) { return; }
       dm.bind(primarySig);
       discharges.push(dm);
       pendingCount--;
@@ -176,13 +178,13 @@ function macaroon() {
       for (i = 0; i < m._caveats.length; i++) {
         cav = m._caveats[i];
         if (cav._vid !== null) {
-            getDischarge(
-                firstPartyLocation,
-                cav._location,
-                cav._identifier,
-                dischargedCallback,
-                dischargedErrorCallback);
-            pendingCount++;
+          getDischarge(
+            firstPartyLocation,
+            cav._location,
+            cav._identifier,
+            dischargedCallback,
+            dischargedErrorCallback);
+          pendingCount++;
         }
       }
       if (pendingCount === 0) {
@@ -192,11 +194,6 @@ function macaroon() {
     };
     dischargeCaveats(m);
   };
-
-
-  
-
-  
 
   return exports;
 }
