@@ -6,14 +6,13 @@
   },
   "dependencies": {
     "sjcl": "1.0.3",
-    "tweetnacl": "0.13.1",
-    "yui": "^3.18.1",
-    "chai": "^3.2.0",
-    "jslint": "^0.9.3"
+    "tweetnacl": "0.13.1"
   },
   "description": "macaroons: cookies with contextual caveats for decentralized authorization in the cloud",
   "devDependencies": {
-    "mocha": "2.3.0"
+    "mocha": "2.3.0",
+    "chai": "^3.2.0",
+    "jslint": "^0.9.3"
   },
   "files": [
     "LICENSE",
@@ -35,7 +34,7 @@
     "url": "http://github.com/juju/js-macaroon.git"
   },
   "scripts": {
-    "test": "node_modules/mocha/bin/mocha test/test.js",
+    "test": "node_modules/mocha/bin/mocha test/node-test.js",
     "postinstall": "make build"
   },
   "version": "1.0.1"

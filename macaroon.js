@@ -1,5 +1,8 @@
 /*jslint indent: 2, node: true, nomen: true, plusplus: true, todo: true, vars: true, white: true */
 /*global Uint8Array,nacl,sjcl */
+var nacl = require("tweetnacl");
+var sjcl = require("sjcl");
+
 function macaroon() {
   'use strict';
   var exports = {};
@@ -465,3 +468,5 @@ function macaroon() {
   };
   return exports;
 }
+
+module.exports = macaroon()

@@ -22,15 +22,7 @@ clean:
 .PHONY: build
 build:
 	mkdir -p build
-	cat templates/yui-header.js \
-		node_modules/sjcl/sjcl.js \
-		node_modules/tweetnacl/nacl-fast.js \
-		macaroon.js \
-		templates/yui-footer.js > build/yui-macaroon.js
-
-	cat templates/node-header.js \
-		macaroon.js \
-		templates/node-footer.js > build/node-macaroon.js
+	cat macaroon.js > build/node-macaroon.js
 
 .PHONY: lint
 lint:
