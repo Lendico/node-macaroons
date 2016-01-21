@@ -20,7 +20,8 @@
     "README",
     "macaroon.js",
     "templates",
-    "test"
+    "test",
+    "lib"
   ],
   "homepage": "http://github.com/juju/js-macaroon",
   "keywords": [
