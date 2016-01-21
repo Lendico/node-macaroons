@@ -4,6 +4,7 @@
 
 var assert = require('assert');
 var macaroon = require('../macaroon');
+var macaroon = require('../macaroon');
 var nacl = require('tweetnacl');
 
 function strUint8Array(s) {
@@ -80,14 +81,6 @@ function makeMacaroons(mspecs) {
 }
 
 describe('macaroon', function() {
-
-    // before(function(done) {
-    //     // YUI(globalConfig).use('macaroon', function(Y) {
-    //     //     macaroon = Y.namespace('macaroon');
-    //     //     done();
-    //     // });
-    // });
-
     it('loads the macaroon library in a usable state', function() {
         var rootKey = strUint8Array('secret');
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');

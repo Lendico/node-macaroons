@@ -20,13 +20,12 @@ function macaroon() {
     asserts.assertString(id, 'macaroon identifier');
     asserts.assertUint8Array(rootKey, 'macaroon root key');
 
-    var m = new Macaroon();
-    m._caveats = [];
-    var hashedRootKey = hash.makeKey(rootKey);
-    m._location = loc;
-    m._identifier = id;
-    m._signature = hash.keyedHash(hashedRootKey, sjcl.codec.utf8String.toBits(id));
-    return m;
+    return Macaroon({
+      _caveats: [],
+      _location: loc,
+      _identifier: id,
+      _signature: hash.keyedHash(hash.makeKey(rootKey), sjcl.codec.utf8String.toBits(id))
+    });
   };
 
   // import converts an object as deserialised from
@@ -42,11 +41,7 @@ function macaroon() {
     asserts.assertString(obj.location, 'macaroon location');
     asserts.assertString(obj.identifier, 'macaroon identifier');
 
-    var m = new Macaroon();
-    m._signature = sjcl.codec.hex.toBits(obj.signature);
-    m._location = obj.location;
-    m._identifier = obj.identifier;
-    m._caveats = obj.caveats.map(function(jsonCav) {
+    var caveats = obj.caveats.map(function(jsonCav) {
       asserts.assertString(jsonCav.cid, 'caveat id');
 
       var cav = {
@@ -67,7 +62,13 @@ function macaroon() {
       cav._identifier = jsonCav.cid;
       return cav;
     });
-    return m;
+
+    return Macaroon({
+      _signature: sjcl.codec.hex.toBits(obj.signature),
+      _location: obj.location,
+      _identifier: obj.identifier,
+      _caveats: caveats
+    });
   };
 
   // export converts a macaroon or array of macaroons
@@ -79,10 +80,10 @@ function macaroon() {
       });
     }
     return {
-      location: m._location,
-      identifier: m._identifier,
-      signature: sjcl.codec.hex.fromBits(m._signature),
-      caveats: m._caveats.map(function(cav) {
+      location: m.location(),
+      identifier: m.id(),
+      signature: sjcl.codec.hex.fromBits(m.signatureRaw()),
+      caveats: m.getCaveats().map(function(cav) {
         var cavObj = {
           cid: cav._identifier,
         };
@@ -134,8 +135,9 @@ function macaroon() {
       }
     };
     dischargeCaveats = function(m) {
-      for (var i = 0; i < m._caveats.length; i++) {
-        var cav = m._caveats[i];
+      var caveats = m.getCaveats();
+      for (var i = 0; i < caveats.length; i++) {
+        var cav = caveats[i];
         if (cav._vid !== null) {
           getDischarge(
             firstPartyLocation,
