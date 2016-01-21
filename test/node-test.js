@@ -3,7 +3,7 @@
 'use strict';
 
 var assert = require('assert');
-var macaroon = require('../build/node-macaroon');
+var macaroon = require('../macaroon');
 var nacl = require('tweetnacl');
 
 function strUint8Array(s) {
