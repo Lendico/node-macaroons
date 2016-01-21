@@ -174,9 +174,8 @@ function macaroon() {
       }
     };
     dischargeCaveats = function(m) {
-      var cav, i;
-      for (i = 0; i < m._caveats.length; i++) {
-        cav = m._caveats[i];
+      for (var i = 0; i < m._caveats.length; i++) {
+        var cav = m._caveats[i];
         if (cav._vid !== null) {
           getDischarge(
             firstPartyLocation,
