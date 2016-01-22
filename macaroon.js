@@ -123,8 +123,7 @@ function macaroon() {
       }
     };
     dischargeCaveats = function(m) {
-      m
-        .getCaveats()
+      m.getCaveats()
         .filter(function (cav) { return cav._vid !== null; })
         .forEach(function (cav) {
           getDischarge(
@@ -134,7 +133,7 @@ function macaroon() {
             dischargedCallback,
             dischargedErrorCallback);
           pendingCount++;
-      });
+        });
 
       if (pendingCount === 0) {
         onOk(discharges);
