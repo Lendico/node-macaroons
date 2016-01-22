@@ -32,7 +32,6 @@ function macaroon() {
   // JSON to a macaroon. It also accepts an array of objects,
   // returning the resulting array of macaroons.
   exports.import = function(obj) {
-  
     if (obj.constructor === Array) {
       return obj.map(function(value) {
         return exports.import(value);
@@ -108,19 +107,21 @@ function macaroon() {
     var pendingCount = 0;
     var errorCalled = false;
     var firstPartyLocation = m.location();
+
     function dischargedCallback(dm) {
       if (errorCalled) { return; }
       dm.bind(primarySig);
       discharges.push(dm);
       pendingCount--;
       dischargeCaveats(dm);
-    };
+    }
+
     function dischargedErrorCallback(err) {
-      if (!errorCalled) {
-        onError(err);
-        errorCalled = true;
-      }
-    };
+      if (errorCalled) { return; }
+      onError(err);
+      errorCalled = true;
+    }
+
     function dischargeCaveats(m) {
       m.getCaveats()
         .filter(function (cav) { return cav._vid !== null; })
@@ -134,15 +135,13 @@ function macaroon() {
           pendingCount++;
         });
 
-      if (pendingCount === 0) {
-        onOk(discharges);
-        return;
-      }
-    };
+      return pendingCount === 0 ? onOk(discharges) : null;
+    }
+
     dischargeCaveats(m);
   };
 
   return exports;
 }
 
-module.exports = macaroon()
+module.exports = macaroon();
