@@ -1,14 +1,14 @@
 {
   "name": "js-macaroon",
-  "author": "Juju UI Engineering Team",
+  "author": "Gregory Thompson",
   "bugs": {
-    "url": "http://github.com/juju/js-macaroon/issues"
+    "url": "https://github.com/GTDev87/js-macaroon/issues"
   },
   "dependencies": {
     "sjcl": "1.0.3",
     "tweetnacl": "0.13.1"
   },
-  "description": "macaroons: cookies with contextual caveats for decentralized authorization in the cloud",
+  "description": "refactored macaroons: cookies with contextual caveats for decentralized authorization in the cloud",
   "devDependencies": {
     "mocha": "2.3.0",
     "chai": "^3.2.0",
@@ -23,20 +23,19 @@
     "test",
     "lib"
   ],
-  "homepage": "http://github.com/juju/js-macaroon",
+  "homepage": "https://github.com/GTDev87/js-macaroon",
   "keywords": [
     "authorization",
     "cookie"
   ],
   "license": "BSD-3-Clause",
-  "main": "build/node-macaroon.js",
+  "main": "macaroon.js",
   "repository": {
     "type": "git",
-    "url": "http://github.com/juju/js-macaroon.git"
+    "url": "https://github.com/GTDev87/js-macaroon.git"
   },
   "scripts": {
-    "test": "node_modules/mocha/bin/mocha test/node-test.js",
-    "postinstall": "make build"
+    "test": "node_modules/mocha/bin/mocha test/node-test.js"
   },
   "version": "1.0.1"
 }
