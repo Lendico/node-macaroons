@@ -1,8 +1,8 @@
 {
-  "name": "js-macaroon",
+  "name": "node-macaroons",
   "author": "Gregory Thompson",
   "bugs": {
-    "url": "https://github.com/GTDev87/js-macaroon/issues"
+    "url": "https://github.com/GTDev87/node-macaroons/issues"
   },
   "dependencies": {
     "sjcl": "1.0.3",
@@ -23,7 +23,7 @@
     "test",
     "lib"
   ],
-  "homepage": "https://github.com/GTDev87/js-macaroon",
+  "homepage": "https://github.com/GTDev87/node-macaroons",
   "keywords": [
     "authorization",
     "cookie"
@@ -32,7 +32,7 @@
   "main": "macaroon.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GTDev87/js-macaroon.git"
+    "url": "https://github.com/GTDev87/node-macaroons.git"
   },
   "scripts": {
     "test": "node_modules/mocha/bin/mocha test/node-test.js"
