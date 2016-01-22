@@ -43,24 +43,14 @@ function macaroon() {
 
     var caveats = obj.caveats.map(function(jsonCav) {
       asserts.assertString(jsonCav.cid, 'caveat id');
+      if (jsonCav.cl !== undefined) { asserts.assertString(jsonCav.cl, 'caveat location'); }
+      if (jsonCav.vid !== undefined) { asserts.assertString(jsonCav.vid, 'caveat verification id'); }
 
-      var cav = {
-        _identifier: null,
-        _location: null,
-        _vid: null,
+      return {
+        _identifier: jsonCav.cid,
+        _location: jsonCav.cl !== undefined ? jsonCav.cl : null,
+        _vid: jsonCav.vid !== undefined ? sjcl.codec.base64.toBits(jsonCav.vid, true) : null,
       };
-      if (jsonCav.cl !== undefined) {
-        asserts.assertString(jsonCav.cl, 'caveat location');
-        cav._location = jsonCav.cl;
-      }
-      if (jsonCav.vid !== undefined) {
-        asserts.assertString(jsonCav.vid, 'caveat verification id');
-        // Use URL encoding.
-        cav._vid = sjcl.codec.base64.toBits(jsonCav.vid, true);
-      }
-      
-      cav._identifier = jsonCav.cid;
-      return cav;
     });
 
     return Macaroon({
@@ -84,9 +74,7 @@ function macaroon() {
       identifier: m.id(),
       signature: sjcl.codec.hex.fromBits(m.signatureRaw()),
       caveats: m.getCaveats().map(function(cav) {
-        var cavObj = {
-          cid: cav._identifier,
-        };
+        var cavObj = { cid: cav._identifier };
         if (cav._vid !== null) {
           // Use URL encoding and do not append "=" characters.
           cavObj.vid = sjcl.codec.base64.fromBits(cav._vid, true, true);
@@ -135,10 +123,10 @@ function macaroon() {
       }
     };
     dischargeCaveats = function(m) {
-      var caveats = m.getCaveats();
-      for (var i = 0; i < caveats.length; i++) {
-        var cav = caveats[i];
-        if (cav._vid !== null) {
+      m
+        .getCaveats()
+        .filter(function (cav) { return cav._vid !== null; })
+        .forEach(function (cav) {
           getDischarge(
             firstPartyLocation,
             cav._location,
@@ -146,8 +134,8 @@ function macaroon() {
             dischargedCallback,
             dischargedErrorCallback);
           pendingCount++;
-        }
-      }
+      });
+
       if (pendingCount === 0) {
         onOk(discharges);
         return;
