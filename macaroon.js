@@ -108,21 +108,20 @@ function macaroon() {
     var pendingCount = 0;
     var errorCalled = false;
     var firstPartyLocation = m.location();
-    var dischargeCaveats;
-    var dischargedCallback = function(dm) {
+    function dischargedCallback(dm) {
       if (errorCalled) { return; }
       dm.bind(primarySig);
       discharges.push(dm);
       pendingCount--;
       dischargeCaveats(dm);
     };
-    var dischargedErrorCallback = function(err) {
+    function dischargedErrorCallback(err) {
       if (!errorCalled) {
         onError(err);
         errorCalled = true;
       }
     };
-    dischargeCaveats = function(m) {
+    function dischargeCaveats(m) {
       m.getCaveats()
         .filter(function (cav) { return cav._vid !== null; })
         .forEach(function (cav) {
