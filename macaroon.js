@@ -40,23 +40,29 @@ function macaroon() {
     asserts.assertString(obj.location, 'macaroon location');
     asserts.assertString(obj.identifier, 'macaroon identifier');
 
-    var caveats = obj.caveats.map(function(jsonCav) {
-      asserts.assertString(jsonCav.cid, 'caveat id');
-      if (jsonCav.cl !== undefined) { asserts.assertString(jsonCav.cl, 'caveat location'); }
-      if (jsonCav.vid !== undefined) { asserts.assertString(jsonCav.vid, 'caveat verification id'); }
+    function isThirdPartyCaveat(jsonCav){ return jsonCav.vid !== undefined; }
 
-      return {
-        _identifier: jsonCav.cid,
-        _location: jsonCav.cl !== undefined ? jsonCav.cl : null,
-        _vid: jsonCav.vid !== undefined ? sjcl.codec.base64.toBits(jsonCav.vid, true) : null,
-      };
-    });
+    function toFirstPartyCaveatObj(jsonCav) {
+      asserts.assertString(jsonCav.cid, 'caveat id');
+
+      return { _identifier: jsonCav.cid, _location: null, _vid: null };
+    }
+
+    function toThirdPartyCaveatObj(jsonCav) {
+      asserts.assertString(jsonCav.cid, 'caveat id');
+      asserts.assertString(jsonCav.vid, 'caveat verification id');
+      asserts.assertString(jsonCav.cl, 'caveat location');
+
+      return { _identifier: jsonCav.cid, _location: jsonCav.cl, _vid: sjcl.codec.base64.toBits(jsonCav.vid, true) };
+    }
 
     return Macaroon({
       _signature: sjcl.codec.hex.toBits(obj.signature),
       _location: obj.location,
       _identifier: obj.identifier,
-      _caveats: caveats
+      _caveats: obj.caveats.map(function(jsonCav) {
+        return (isThirdPartyCaveat(jsonCav) ? toThirdPartyCaveatObj : toFirstPartyCaveatObj)(jsonCav);
+      })
     });
   };
 
@@ -68,18 +74,21 @@ function macaroon() {
         return exports.export(value);
       });
     }
+
+    function isThirdPartyCaveat(cav){ return cav._vid !== null; }
+
+    function firstPartyCaveatObj(cav){ return { cid: cav._identifier }; }
+
+    function thirdPartyCaveatObj(cav){ 
+      return {  cid: cav._identifier, vid: sjcl.codec.base64.fromBits(cav._vid, true, true), cl: cav._location }; 
+    }
+
     return {
       location: m.location(),
       identifier: m.id(),
       signature: sjcl.codec.hex.fromBits(m.signatureRaw()),
       caveats: m.getCaveats().map(function(cav) {
-        var cavObj = { cid: cav._identifier };
-        if (cav._vid !== null) {
-          // Use URL encoding and do not append "=" characters.
-          cavObj.vid = sjcl.codec.base64.fromBits(cav._vid, true, true);
-          cavObj.cl = cav._location;
-        }
-        return cavObj;
+        return (isThirdPartyCaveat(cav) ? thirdPartyCaveatObj : firstPartyCaveatObj)(cav);
       })
     };
   };
