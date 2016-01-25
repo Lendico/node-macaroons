@@ -11,6 +11,9 @@ function macaroon() {
   'use strict';
   var exports = {};
 
+  function isMacJsonThirdPartyCaveat(jsonCav){ return jsonCav.vid !== undefined; }
+  function isMacThirdPartyCaveat(cav){ return cav._vid !== null; }
+
   // newMacaroon returns a new macaroon with the given
   // root key, identifier and location.
   // The root key must be an sjcl bitArray.
@@ -40,7 +43,6 @@ function macaroon() {
     asserts.assertString(obj.location, 'macaroon location');
     asserts.assertString(obj.identifier, 'macaroon identifier');
 
-    function isThirdPartyCaveat(jsonCav){ return jsonCav.vid !== undefined; }
 
     function toFirstPartyCaveatObj(jsonCav) {
       asserts.assertString(jsonCav.cid, 'caveat id');
@@ -61,7 +63,7 @@ function macaroon() {
       _location: obj.location,
       _identifier: obj.identifier,
       _caveats: obj.caveats.map(function(jsonCav) {
-        return (isThirdPartyCaveat(jsonCav) ? toThirdPartyCaveatObj : toFirstPartyCaveatObj)(jsonCav);
+        return (isMacJsonThirdPartyCaveat(jsonCav) ? toThirdPartyCaveatObj : toFirstPartyCaveatObj)(jsonCav);
       })
     });
   };
@@ -75,8 +77,6 @@ function macaroon() {
       });
     }
 
-    function isThirdPartyCaveat(cav){ return cav._vid !== null; }
-
     function firstPartyCaveatObj(cav){ return { cid: cav._identifier }; }
 
     function thirdPartyCaveatObj(cav){ 
@@ -88,10 +88,27 @@ function macaroon() {
       identifier: m.id(),
       signature: sjcl.codec.hex.fromBits(m.signatureRaw()),
       caveats: m.getCaveats().map(function(cav) {
-        return (isThirdPartyCaveat(cav) ? thirdPartyCaveatObj : firstPartyCaveatObj)(cav);
+        return (isMacThirdPartyCaveat(cav) ? thirdPartyCaveatObj : firstPartyCaveatObj)(cav);
       })
     };
   };
+
+  function asyncMap(list, itFun, resFn) {
+    var revList = list.reverse();
+    var resultList = [];
+
+    function runAsyncIteration(err, result) {
+      resultList.push(result);
+      return (err || !revList.length) ? resFn(err, resultList) : itFun(revList.pop(), runAsyncIteration);
+    }
+
+    return !revList.length ? resFn(null, resultList) : itFun(revList.pop(), runAsyncIteration);
+  }
+
+  function shallowFlatten(list) { return [].concat.apply([], list); }
+  function deepFlatten(maybeList){ 
+    return Array.isArray(maybeList) ? shallowFlatten(maybeList.map(deepFlatten)) : maybeList; 
+  }
 
   // discharge gathers discharge macaroons for all the third party caveats
   // in m (and any subsequent caveats required by those) calling getDischarge to
@@ -112,42 +129,25 @@ function macaroon() {
   // any error on failure.
   exports.discharge = function(m, getDischarge, onOk, onError) {
     var primarySig = m.signature();
-    var discharges = [m];
-    var pendingCount = 0;
-    var errorCalled = false;
     var firstPartyLocation = m.location();
 
-    function dischargedCallback(dm) {
-      if (errorCalled) { return; }
-      dm.bind(primarySig);
-      discharges.push(dm);
-      pendingCount--;
-      dischargeCaveats(dm);
-    }
-
-    function dischargedErrorCallback(err) {
-      if (errorCalled) { return; }
-      onError(err);
-      errorCalled = true;
-    }
-
-    function dischargeCaveats(m) {
-      m.getCaveats()
-        .filter(function (cav) { return cav._vid !== null; })
-        .forEach(function (cav) {
+    function dischargeCaveats(mac, callback){
+      asyncMap(
+        mac.getCaveats().filter(isMacThirdPartyCaveat),
+        function (cav, iterFn) {
           getDischarge(
             firstPartyLocation,
             cav._location,
             cav._identifier,
-            dischargedCallback,
-            dischargedErrorCallback);
-          pendingCount++;
-        });
-
-      return pendingCount === 0 ? onOk(discharges) : null;
+            function (dischargeMac) { dischargeCaveats(dischargeMac.bind(primarySig), iterFn);},
+            iterFn);
+        },
+        function (err, discharges) { return callback(err, [mac].concat(discharges)); });
     }
 
-    dischargeCaveats(m);
+    dischargeCaveats(m, function (err, newDischarges) {
+      return err ? onError(err) : onOk(deepFlatten(newDischarges));
+    });
   };
 
   return exports;
