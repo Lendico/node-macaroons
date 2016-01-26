@@ -264,7 +264,11 @@ describe('import/export', function() {
 describe('serialization', function () {
         //from macaroon.io
     var actualSerializedMacaroon = "MDAxOGxvY2F0aW9uIGEgbG9jYXRpb24KMDAxN2lkZW50aWZpZXIgc29tZSBpZAowMDJmc2lnbmF0dXJlINkWzm-bYtxKCAzl1KZglWRx8ZuGDaQkKwhScnMxwQM9Cg";
-    
+    var actualMacaroonDetails = 
+        "location a location\n" +
+        "identifier some id\n" +
+        "signature d916ce6f9b62dc4a080ce5d4a660956471f19b860da4242b0852727331c1033d\n"
+
     it('should serialize macaroons', function() {
         var rootKey = strUint8Array('secret');
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
@@ -275,6 +279,18 @@ describe('serialization', function () {
         var serialized = macaroon.serialize(m);
 
         assert.equal(actualSerializedMacaroon, serialized);
+    });
+
+    it('should show macaroon details', function() {
+        var rootKey = strUint8Array('secret');
+        var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
+
+        assert.equal(m.location(), 'a location');
+        assert.equal(m.id(), 'some id');
+
+        var details = macaroon.details(m);
+
+        assert.equal(actualMacaroonDetails, details);
     });
 })
 

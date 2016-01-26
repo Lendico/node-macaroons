@@ -108,10 +108,9 @@ function macaroon() {
   }
 
   function serializeBinaryPairToBinary(keyValue){
-    var binaryBits = keyValue[1];
     var keyPartBits = sjcl.codec.utf8String.toBits(keyValue[0] + " ");
     var footerBits = sjcl.codec.utf8String.toBits("\n");
-    var contents = sjcl.bitArray.concat(keyPartBits, sjcl.bitArray.concat(binaryBits, footerBits));
+    var contents = sjcl.bitArray.concat(keyPartBits, sjcl.bitArray.concat(keyValue[1], footerBits));
     var caveatLength = (sjcl.bitArray.bitLength(contents) / 8) + PACKET_PREFIX_LENGTH;
 
     if(0 <= caveatLength && caveatLength >= (65535)){ throw new Error("Data is too long for a binary packet."); }
@@ -138,11 +137,23 @@ function macaroon() {
   };
 
   exports.serialize = function(m) {
-    var detailWithoutSignatureBits = detailsWithoutSignatureBinary(m);
+    var fullMacaroonBits = sjcl.bitArray.concat(
+      detailsWithoutSignatureBinary(m), 
+      serializeBinaryPairToBinary(["signature", m.signatureRaw()]));
 
-    var fullMacaroonBits = sjcl.bitArray.concat(detailWithoutSignatureBits, serializeBinaryPairToBinary(["signature", m.signatureRaw()]));
+    return sjcl.codec.base64.fromBits(fullMacaroonBits, true, true);
+  };
 
-    return sjcl.codec.base64.fromBits(fullMacaroonBits, true, true)
+  exports.details = function(m) {
+    var fullMacaroonBits = sjcl.bitArray.concat(
+      detailsWithoutSignatureBinary(m), 
+      serializeStringPairToBinary(["signature", sjcl.codec.hex.fromBits(m.signatureRaw())]));
+
+    var details = sjcl.codec.utf8String.fromBits(fullMacaroonBits, true, true);
+
+    var doctoredDetails = details.split("\n").map(function (line) { return line.slice(PACKET_PREFIX_LENGTH);}).join("\n");
+
+    return doctoredDetails;
   };
 
   function asyncMap(list, itFun, resFn) {
