@@ -145,13 +145,15 @@ function macaroon() {
   };
 
   exports.details = function(m) {
+    function removeHeader(line) { return line.slice(PACKET_PREFIX_LENGTH);}
+
     var fullMacaroonBits = sjcl.bitArray.concat(
       detailsWithoutSignatureBinary(m), 
       serializeStringPairToBinary(["signature", sjcl.codec.hex.fromBits(m.signatureRaw())]));
 
     var details = sjcl.codec.utf8String.fromBits(fullMacaroonBits, true, true);
 
-    var doctoredDetails = details.split("\n").map(function (line) { return line.slice(PACKET_PREFIX_LENGTH);}).join("\n");
+    var doctoredDetails = details.split("\n").map(removeHeader).join("\n");
 
     return doctoredDetails;
   };
