@@ -11,6 +11,11 @@ function macaroon() {
   'use strict';
   var exports = {};
 
+  function shallowFlatten(list) { return [].concat.apply([], list); }
+  function deepFlatten(maybeList){ 
+    return Array.isArray(maybeList) ? shallowFlatten(maybeList.map(deepFlatten)) : maybeList; 
+  }
+
   function isMacJsonThirdPartyCaveat(jsonCav){ return jsonCav.vid !== undefined; }
   function isMacThirdPartyCaveat(cav){ return cav._vid !== null; }
 
@@ -35,14 +40,10 @@ function macaroon() {
   // JSON to a macaroon. It also accepts an array of objects,
   // returning the resulting array of macaroons.
   exports.import = function(obj) {
-    if (obj.constructor === Array) {
-      return obj.map(function(value) {
-        return exports.import(value);
-      });
-    }
+    if (obj.constructor === Array) { return obj.map(exports.import); }
+
     asserts.assertString(obj.location, 'macaroon location');
     asserts.assertString(obj.identifier, 'macaroon identifier');
-
 
     function toFirstPartyCaveatObj(jsonCav) {
       asserts.assertString(jsonCav.cid, 'caveat id');
@@ -70,12 +71,8 @@ function macaroon() {
 
   // export converts a macaroon or array of macaroons
   // to the exported object form, suitable for encoding as JSON.
-  exports.export = function(m) {
-    if (m.constructor === Array) {
-      return m.map(function(value) {
-        return exports.export(value);
-      });
-    }
+  function exportFn(m) {
+    if (m.constructor === Array) { return m.map(exportFn); }
 
     function firstPartyCaveatObj(cav){ return { cid: cav._identifier }; }
 
@@ -93,6 +90,61 @@ function macaroon() {
     };
   };
 
+  exports.export = exportFn;
+
+  var PACKET_PREFIX_LENGTH = 4;
+  var RADIX = 16;
+  var PACKET_MAX_LENGTH = 65535;
+
+  function zeros(num) { return Array.apply(null, Array(num)).map(function() {return '0';}).join(""); }
+  function numberToHex(num) { return ("0000" + (num >>> 0).toString(RADIX)).slice(-PACKET_PREFIX_LENGTH); }
+
+  function serializeStringPairToBinary(keyValue) {
+    var caveatStringContent = keyValue[0] + " " + keyValue[1] + "\n";
+    var caveatLength = caveatStringContent.length + PACKET_PREFIX_LENGTH;
+    if(0 <= caveatLength && caveatLength >= (65535)){ throw new Error("Data is too long for a binary packet."); }
+
+    return sjcl.codec.utf8String.toBits(numberToHex(caveatLength) + caveatStringContent);
+  }
+
+  function serializeBinaryPairToBinary(keyValue){
+    var binaryBits = keyValue[1];
+    var keyPartBits = sjcl.codec.utf8String.toBits(keyValue[0] + " ");
+    var footerBits = sjcl.codec.utf8String.toBits("\n");
+    var contents = sjcl.bitArray.concat(keyPartBits, sjcl.bitArray.concat(binaryBits, footerBits));
+    var caveatLength = (sjcl.bitArray.bitLength(contents) / 8) + PACKET_PREFIX_LENGTH;
+
+    if(0 <= caveatLength && caveatLength >= (65535)){ throw new Error("Data is too long for a binary packet."); }
+
+    var headerBits = sjcl.codec.utf8String.toBits(numberToHex(caveatLength));
+    return sjcl.bitArray.concat(headerBits, contents);
+  }
+
+  function detailsWithoutSignatureBinary(m) {
+    var exportedMacaroon = exportFn(m);
+
+    var fullList = shallowFlatten(exportedMacaroon.caveats.map(function (caveat) {
+      return [['cid', caveat.cid]].concat(caveat.vid ? [['vid', caveat.vid], ['cl', caveat.cl]] : []);
+    }));
+
+    var pairs = [
+      ["location", exportedMacaroon.location], 
+      ["identifier", exportedMacaroon.identifier]]
+      .concat(fullList);
+
+    return pairs
+      .map(serializeStringPairToBinary)
+      .reduce(sjcl.bitArray.concat, sjcl.codec.utf8String.toBits(""));
+  };
+
+  exports.serialize = function(m) {
+    var detailWithoutSignatureBits = detailsWithoutSignatureBinary(m);
+
+    var fullMacaroonBits = sjcl.bitArray.concat(detailWithoutSignatureBits, serializeBinaryPairToBinary(["signature", m.signatureRaw()]));
+
+    return sjcl.codec.base64.fromBits(fullMacaroonBits, true, true)
+  };
+
   function asyncMap(list, itFun, resFn) {
     var revList = list.reverse();
     var resultList = [];
@@ -103,11 +155,6 @@ function macaroon() {
     }
 
     return !revList.length ? resFn(null, resultList) : itFun(revList.pop(), runAsyncIteration);
-  }
-
-  function shallowFlatten(list) { return [].concat.apply([], list); }
-  function deepFlatten(maybeList){ 
-    return Array.isArray(maybeList) ? shallowFlatten(maybeList.map(deepFlatten)) : maybeList; 
   }
 
   // discharge gathers discharge macaroons for all the third party caveats

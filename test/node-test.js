@@ -4,7 +4,6 @@
 
 var assert = require('assert');
 var macaroon = require('../macaroon');
-var macaroon = require('../macaroon');
 var nacl = require('tweetnacl');
 
 function strUint8Array(s) {
@@ -261,6 +260,23 @@ describe('import/export', function() {
         assert.deepEqual(objs1, objs);
     });
 });
+
+describe('serialization', function () {
+        //from macaroon.io
+    var actualSerializedMacaroon = "MDAxOGxvY2F0aW9uIGEgbG9jYXRpb24KMDAxN2lkZW50aWZpZXIgc29tZSBpZAowMDJmc2lnbmF0dXJlINkWzm-bYtxKCAzl1KZglWRx8ZuGDaQkKwhScnMxwQM9Cg";
+    
+    it('should serialize macaroons', function() {
+        var rootKey = strUint8Array('secret');
+        var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
+
+        assert.equal(m.location(), 'a location');
+        assert.equal(m.id(), 'some id');
+
+        var serialized = macaroon.serialize(m);
+
+        assert.equal(actualSerializedMacaroon, serialized);
+    });
+})
 
 var recursiveThirdPartyCaveatMacaroons = [{
     rootKey: 'root-key',
