@@ -6,6 +6,7 @@ var sjcl = require("sjcl");
 var Macaroon = require("./lib/").Macaroon;
 var asserts = require("./lib/asserts");
 var hash = require("./lib/hash");
+var bits = require("./lib/bits");
 
 function macaroon() {
   'use strict';
@@ -39,8 +40,8 @@ function macaroon() {
   // import converts an object as deserialised from
   // JSON to a macaroon. It also accepts an array of objects,
   // returning the resulting array of macaroons.
-  exports.import = function(obj) {
-    if (obj.constructor === Array) { return obj.map(exports.import); }
+  function importFn(obj) {
+    if (obj.constructor === Array) { return obj.map(importFn); }
 
     asserts.assertString(obj.location, 'macaroon location');
     asserts.assertString(obj.identifier, 'macaroon identifier');
@@ -67,7 +68,9 @@ function macaroon() {
         return (isMacJsonThirdPartyCaveat(jsonCav) ? toThirdPartyCaveatObj : toFirstPartyCaveatObj)(jsonCav);
       })
     });
-  };
+  }
+
+  exports.import = importFn;
 
   // export converts a macaroon or array of macaroons
   // to the exported object form, suitable for encoding as JSON.
@@ -93,6 +96,7 @@ function macaroon() {
   exports.export = exportFn;
 
   var PACKET_PREFIX_LENGTH = 4;
+  var BYTE_SIZE = 8
   var RADIX = 16;
   var PACKET_MAX_LENGTH = 65535;
 
@@ -144,8 +148,10 @@ function macaroon() {
     return sjcl.codec.base64.fromBits(fullMacaroonBits, true, true);
   };
 
+  function removeHeader(line) { return line.slice(PACKET_PREFIX_LENGTH);}
+
+
   exports.details = function(m) {
-    function removeHeader(line) { return line.slice(PACKET_PREFIX_LENGTH);}
 
     var fullMacaroonBits = sjcl.bitArray.concat(
       detailsWithoutSignatureBinary(m), 
@@ -153,9 +159,107 @@ function macaroon() {
 
     var details = sjcl.codec.utf8String.fromBits(fullMacaroonBits, true, true);
 
-    var doctoredDetails = details.split("\n").map(removeHeader).join("\n");
+    return details.split("\n").map(removeHeader).join("\n");;
+  };
 
-    return doctoredDetails;
+  //sjcl cannot transform macaroon signature to a string...
+  //so have to use node ... may not be browser compatible... for now
+
+  function setAndReturn(obj, key, value) {
+    obj[key] = value;
+    return obj;
+  }
+
+
+  var PACKET_PREFIX_LENGTH = 4;
+  var BYTE_SIZE = 8
+  var RADIX = 16;
+  var PACKET_MAX_LENGTH = 65535;
+
+  function sliceStringFromBitArray(bitArray, start, end){
+    return sjcl.codec.utf8String.fromBits(sjcl.bitArray.bitSlice(bitArray, start * BYTE_SIZE, end * BYTE_SIZE));
+  }
+
+  function findChar(bitArray, searchChar) {
+    var charLength = (sjcl.bitArray.bitLength(bitArray) / BYTE_SIZE);
+
+    for(var i = 0; i < charLength; ++i){
+      var curChar = sliceStringFromBitArray(bitArray, i, i + 1);
+      if(curChar === searchChar){ return i; }
+    }
+  }
+
+  function getNextBits(macBits){
+    var locationAfterSize = BYTE_SIZE * PACKET_PREFIX_LENGTH;
+    var sizeBytes = parseInt(sliceStringFromBitArray(macBits, 0, PACKET_PREFIX_LENGTH), 16);
+
+    var locationAtEndOfCaveat = BYTE_SIZE * sizeBytes;
+
+    var charSpaceIndex = findChar(sjcl.bitArray.bitSlice(macBits, locationAfterSize, locationAtEndOfCaveat), " ");
+    var charLocationOfSpace = PACKET_PREFIX_LENGTH + charSpaceIndex;
+    var key = sliceStringFromBitArray(macBits, PACKET_PREFIX_LENGTH, charLocationOfSpace);
+
+    // -1 for newline
+    var valueBits = sjcl.bitArray.bitSlice(macBits, (charLocationOfSpace + 1) * BYTE_SIZE, (sizeBytes - 1) * BYTE_SIZE)    
+
+    return {
+      keyString: key,
+      valueBits: valueBits,
+      nextBits: sjcl.bitArray.bitSlice(macBits, locationAtEndOfCaveat)
+    };
+  }
+
+  function getMacaroonPartsFromMacaroonBit(macBits) {
+    var curBits = macBits;
+    var macaroonParts = [];
+
+    while(curBits.length){
+      var bitsObj = getNextBits(curBits);
+      var key = bitsObj.keyString;
+      var valueBits = bitsObj.valueBits;
+
+      if(bitsObj.nextBits === curBits) { throw new Error("Deserialization Error"); }
+
+      curBits = bitsObj.nextBits;
+      macaroonParts.push({keyString: key, valueBits: valueBits});
+    }
+
+    return macaroonParts;
+  }
+
+  exports.deserialize = function (macHex) {
+
+    var macBits = sjcl.codec.base64.toBits(macHex, true);
+
+    var macaroonParts = getMacaroonPartsFromMacaroonBit(macBits);
+
+    var macaroonImport = macaroonParts
+      .reduce(function (aggObj, macPartObj) {
+
+        if(macPartObj.keyString === "location"){ return setAndReturn(aggObj, "location", sjcl.codec.utf8String.fromBits(macPartObj.valueBits)); }
+        if(macPartObj.keyString === "identifier"){ return setAndReturn(aggObj, "identifier", sjcl.codec.utf8String.fromBits(macPartObj.valueBits)); }
+        if(macPartObj.keyString === "signature"){ return setAndReturn(aggObj, "signature", sjcl.codec.hex.fromBits(macPartObj.valueBits)); }
+        if(macPartObj.keyString === "cid"){ 
+          aggObj.caveats.push({cid: sjcl.codec.utf8String.fromBits(macPartObj.valueBits)});
+          return aggObj;
+        }
+        if(macPartObj.keyString === "vid"){ 
+          var lastCaveat = macPartObj.caveats[macPartObj.caveats.length - 1];
+          lastCaveat.vid = sjcl.codec.utf8String.fromBits(macPartObj.valueBits);
+          aggObj.caveats[macPartObj.caveats.length - 1] = lastCaveat;
+          return aggObj;
+        }
+        if(macPartObj.keyString === "cl"){ 
+          var lastCaveat = macPartObj.caveats[macPartObj.caveats.length - 1];
+          lastCaveat.cl = sjcl.codec.utf8String.fromBits(macPartObj.valueBits);
+          aggObj.caveats[macPartObj.caveats.length - 1] = lastCaveat;
+          return aggObj;  
+        }
+          
+        return aggObj;
+      }, {caveats: []});
+
+    return importFn(macaroonImport);
   };
 
   function asyncMap(list, itFun, resFn) {

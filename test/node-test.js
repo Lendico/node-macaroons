@@ -281,6 +281,14 @@ describe('serialization', function () {
         assert.equal(actualSerializedMacaroon, serialized);
     });
 
+    it('should deserialize macaroon', function() {
+        var m = macaroon.deserialize(actualSerializedMacaroon);
+
+        assert.equal(m.location(), 'a location');
+        assert.equal(m.id(), 'some id');
+        assert.equal(uint8ArrayToHex(m.signature()), 'd916ce6f9b62dc4a080ce5d4a660956471f19b860da4242b0852727331c1033d');
+    });
+
     it('should show macaroon details', function() {
         var rootKey = strUint8Array('secret');
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
