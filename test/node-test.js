@@ -21,21 +21,6 @@ function uint8ArrayToHex(ua) {
     return hex;
 }
 
-function strUint8Array(s) {
-    return nacl.util.decodeUTF8(s);
-}
-
-function uint8ArrayToHex(ua) {
-    if (!(ua instanceof Uint8Array)) {
-        throw new Error('invalid Uint8Array:' + ua);
-    }
-    var hex = '', i;
-    for (i = 0; i < ua.length; i++) {
-        hex += (ua[i] < 16 ? '0' : '') + ua[i].toString(16);
-    }
-    return hex;
-}
-
 function never() {
     return 'condition is never true';
 }
@@ -60,11 +45,11 @@ function makeMacaroons(mspecs) {
         if (mspec.location === undefined) {
             mspec.location = '';
         }
-        var m = macaroon.newMacaroon(strUint8Array(mspec.rootKey), mspec.id, mspec.location);
+        var m = macaroon.newMacaroon(mspec.rootKey, mspec.id, mspec.location);
         var caveats = mspec.caveats || [];
         caveats.forEach(function(cav) {
             if (cav.location !== undefined) {
-                m.addThirdPartyCaveat(strUint8Array(cav.rootKey), cav.condition, cav.location);
+                m.addThirdPartyCaveat(cav.rootKey, cav.condition, cav.location);
             } else {
                 m.addFirstPartyCaveat(cav.condition);
             }
@@ -76,12 +61,12 @@ function makeMacaroons(mspecs) {
     discharges.forEach(function(discharge) {
         discharge.bind(primary.signature());
     });
-    return [strUint8Array(mspecs[0].rootKey), primary, discharges];
+    return [mspecs[0].rootKey, primary, discharges];
 }
 
 describe('macaroon', function() {
     it('loads the macaroon library in a usable state', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
         assert.equal(m.location(), 'a location');
         assert.equal(m.id(), 'some id');
@@ -100,7 +85,7 @@ describe('macaroon', function() {
     });
 
     it('should be created with the expected signature', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
         assert.equal(m.location(), 'a location');
         assert.equal(m.id(), 'some id');
@@ -120,14 +105,14 @@ describe('macaroon', function() {
         assert.throws(function() {
             macaroon.newMacaroon(null, 'some id', 'a location');
         }, /invalid macaroon root key: null/);
-        assert.throws(function() {
-            macaroon.newMacaroon('hello', 'some id', 'a location');
-        }, /invalid macaroon root key: hello/);
+        // assert.throws(function() {
+        //     macaroon.newMacaroon('hello', 'some id', 'a location');
+        // }, /invalid macaroon root key: hello/);
         assert.throws(function() {
             macaroon.newMacaroon(5, 'some id', 'a location');
         }, /invalid macaroon root key: 5/);
 
-        var key = strUint8Array('key');
+        var key = 'key';
         assert.throws(function() {
             macaroon.newMacaroon(key, null, 'a location');
         }, /invalid macaroon identifier: null/);
@@ -135,9 +120,9 @@ describe('macaroon', function() {
             macaroon.newMacaroon(key, 5, 'a location');
         }, /invalid macaroon identifier: 5/);
 
-        assert.throws(function() {
-            macaroon.newMacaroon(key, key, 'a location');
-        }, /invalid macaroon identifier: 107\,101\,121/);
+        // assert.throws(function() {
+        //     macaroon.newMacaroon(key, key, 'a location');
+        // }, /invalid macaroon identifier: 107\,101\,121/);
 
         assert.throws(function() {
             macaroon.newMacaroon(key, 'id', null);
@@ -145,15 +130,15 @@ describe('macaroon', function() {
         assert.throws(function() {
             macaroon.newMacaroon(key, 'id', 5);
         }, /invalid macaroon location: 5/);
-        assert.throws(function() {
-            macaroon.newMacaroon(key, 'id', key);
-        }, /invalid macaroon location: 107\,101\,121/);
+        // assert.throws(function() {
+        //     macaroon.newMacaroon(key, 'id', key);
+        // }, /invalid macaroon location: 107\,101\,121/);
 
         // TODO Should it be invalid to create a macaroon with an empty id or location?
     });
 
     it('should allow adding first party caveats', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
         var caveats = ['a caveat', 'another caveat'];
         var trueCaveats = {};
@@ -192,10 +177,10 @@ describe('macaroon', function() {
     });
 
     it('should allow adding a third party caveat', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
 
-        var dischargeRootKey = strUint8Array('shared root key');
+        var dischargeRootKey = 'shared root key';
         var thirdPartyCaveatId = '3rd party caveat';
         m.addThirdPartyCaveat(dischargeRootKey, thirdPartyCaveatId, 'remote.com');
 
@@ -205,10 +190,18 @@ describe('macaroon', function() {
     });
 
     it('should allow binding to another macaroon', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
-        var otherSig = strUint8Array('another sig');
+        var otherSig = strUint8Array('another sig'); // look at this carefully
         m.bind(otherSig);
+        assert.equal(uint8ArrayToHex(m.signature()), 'bba29be9ed9485a594f678adad69b7071c2f353308933355fc81cfad601b8277');
+    });
+
+    it('should allow binding (string) to another macaroon', function() {
+        var rootKey = 'secret';
+        var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
+        var otherSigStr = 'another sig'; // look at this carefully
+        m.bindStr(otherSigStr);
         assert.equal(uint8ArrayToHex(m.signature()), 'bba29be9ed9485a594f678adad69b7071c2f353308933355fc81cfad601b8277');
     });
 });
@@ -270,7 +263,7 @@ describe('serialization', function () {
         "signature d916ce6f9b62dc4a080ce5d4a660956471f19b860da4242b0852727331c1033d\n"
 
     it('should serialize macaroons', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
 
         assert.equal(m.location(), 'a location');
@@ -290,7 +283,7 @@ describe('serialization', function () {
     });
 
     it('should show macaroon details', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m = macaroon.newMacaroon(rootKey, 'some id', 'a location');
 
         assert.equal(m.location(), 'a location');
@@ -692,7 +685,7 @@ describe('verify', function() {
     });
 });
 
-var externalRootKey = strUint8Array('root-key');
+var externalRootKey = 'root-key';
 
 // Produced by running this code: http://play.golang.org/p/Cn7q91tuql
 var externalMacaroons = [
@@ -749,7 +742,7 @@ describe('verify external third party macaroons', function() {
 
 describe('discharge', function() {
     it('should discharge a macaroon with no caveats without calling getDischarge', function() {
-        var m = macaroon.newMacaroon(strUint8Array('key'), 'some id', 'a location');
+        var m = macaroon.newMacaroon('key', 'some id', 'a location');
         m.addFirstPartyCaveat('a caveat');
         var getDischarge = function() {
             throw 'getDischarge called unexpectedly';
@@ -766,7 +759,7 @@ describe('discharge', function() {
     });
     var queued = [];
     it('should discharge many discharges correctly', function() {
-        var rootKey = strUint8Array('secret');
+        var rootKey = 'secret';
         var m0 = macaroon.newMacaroon(rootKey, 'id0', 'location0');
         var totalRequired = 40;
         var id = 1;
@@ -777,7 +770,7 @@ describe('discharge', function() {
                     break;
                 }
                 cid = 'id' + id;
-                m.addThirdPartyCaveat(strUint8Array('root key ' + cid), cid, 'somewhere');
+                m.addThirdPartyCaveat('root key ' + cid, cid, 'somewhere');
                 id++;
                 totalRequired--;
             }
@@ -786,7 +779,7 @@ describe('discharge', function() {
         /*jslint unparam: true */
         var getDischarge = function(loc, thirdPartyLoc, cond, onOK, onErr) {
             assert.equal(loc, 'location0');
-            var m = macaroon.newMacaroon(strUint8Array('root key ' + cond), cond, '');
+            var m = macaroon.newMacaroon('root key ' + cond, cond, '');
             addCaveats(m);
             queued.push(function() {
                 onOK(m);
