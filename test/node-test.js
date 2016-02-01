@@ -701,6 +701,45 @@ describe('verify', function() {
             verifier.verify();
         });
 
+        describe('isVerified', function () {
+
+            it("should should return true if verified", function () {
+                var rootKey = "key";
+                var m = macaroon.newMacaroon(rootKey, 'some id', 'a location')
+                    .addFirstPartyCaveat('first caveat')
+                    .addFirstPartyCaveat('second caveat')
+                    .addFirstPartyCaveat('third caveat');
+
+                var verifier = macaroon.newVerifier(m)
+                    .addCaveatCheck(function (cav) { return cav === "first caveat"; })
+                    .addCaveatCheck(function (cav) { return cav === "second caveat"; })
+                    .addCaveatCheck(function (cav) { return cav === "third caveat"; })
+                    .secret(rootKey);
+
+                assert.deepEqual(verifier.isVerified(), true);
+            });
+
+            it("should should return false if verified", function () {
+                var rootKey = "key";
+                var m = macaroon.newMacaroon(rootKey, 'some id', 'a location')
+                    .addFirstPartyCaveat('first caveat')
+                    .addFirstPartyCaveat('second caveat')
+                    .addFirstPartyCaveat('third caveat');
+
+                var verifier = macaroon.newVerifier(m)
+                    .addCaveatCheck(function (cav) { return cav === "first caveat"; })
+                    .addCaveatCheck(function (cav) { return cav === "third caveat"; })
+                    .secret(rootKey);
+
+                assert.deepEqual(verifier.isVerified(), false);
+            });
+
+
+        })
+
+        
+
+
         it("should fail when not all caveats are satisfied", function () {
             var rootKey = "key";
             var m = macaroon.newMacaroon(rootKey, 'some id', 'a location')
