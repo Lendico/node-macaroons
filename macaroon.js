@@ -10,6 +10,7 @@ function macaroon() {
     // The root key must be an sjcl bitArray.
     // TODO accept string, Buffer, for root key?
     newMacaroon: require("./lib").newMacaroon,
+    newVerifier: require("./lib/verifier").newVerifier,
     // export converts a macaroon or array of macaroons
     // to the exported object form, suitable for encoding as JSON.
     export: require("./lib/serialization/serializeJson").serialize,

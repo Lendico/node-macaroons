@@ -683,6 +683,57 @@ describe('verify', function() {
             };
         }(test)));
     });
+
+    describe('verify with verifier ', function() {
+        it("should succeed when all caveats are successful", function () {
+            var rootKey = "key";
+            var m = macaroon.newMacaroon(rootKey, 'some id', 'a location')
+                .addFirstPartyCaveat('first caveat')
+                .addFirstPartyCaveat('second caveat')
+                .addFirstPartyCaveat('third caveat');
+
+            var verifier = macaroon.newVerifier()
+                .addCaveatCheck(function (cav) { return cav === "first caveat"; })
+                .addCaveatCheck(function (cav) { return cav === "second caveat"; })
+                .addCaveatCheck(function (cav) { return cav === "third caveat"; });
+
+            m.verify(rootKey, verifier.createCheck(), null);
+        });
+
+        it("should fail when not all caveats are satisfied", function () {
+            var rootKey = "key";
+            var m = macaroon.newMacaroon(rootKey, 'some id', 'a location')
+                .addFirstPartyCaveat('first caveat')
+                .addFirstPartyCaveat('second caveat')
+                .addFirstPartyCaveat('third caveat');
+
+            var verifier = macaroon.newVerifier()
+                .addCaveatCheck(function (cav) { return cav === "first caveat"; })
+                .addCaveatCheck(function (cav) { return cav === "third caveat"; });
+
+            
+            assert.throws(function() {
+                m.verify(rootKey, verifier.createCheck(), null);
+            }, /condition "second caveat" not met/);
+        });
+
+        it("should succeed when there are too many checks", function () {
+            var rootKey = "key";
+            var m = macaroon.newMacaroon(rootKey, 'some id', 'a location')
+                .addFirstPartyCaveat('first caveat')
+                .addFirstPartyCaveat('second caveat')
+                .addFirstPartyCaveat('third caveat');
+
+            var verifier = macaroon.newVerifier()
+                .addCaveatCheck(function (cav) { return cav === "extra caveat"; })
+                .addCaveatCheck(function (cav) { return cav === "first caveat"; })
+                .addCaveatCheck(function (cav) { return cav === "second caveat"; })
+                .addCaveatCheck(function (cav) { return cav === "third caveat"; });
+
+            
+            m.verify(rootKey, verifier.createCheck(), null);
+        });
+    });
 });
 
 var externalRootKey = 'root-key';
