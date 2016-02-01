@@ -692,12 +692,13 @@ describe('verify', function() {
                 .addFirstPartyCaveat('second caveat')
                 .addFirstPartyCaveat('third caveat');
 
-            var verifier = macaroon.newVerifier()
+            var verifier = macaroon.newVerifier(m)
                 .addCaveatCheck(function (cav) { return cav === "first caveat"; })
                 .addCaveatCheck(function (cav) { return cav === "second caveat"; })
-                .addCaveatCheck(function (cav) { return cav === "third caveat"; });
+                .addCaveatCheck(function (cav) { return cav === "third caveat"; })
+                .secret(rootKey);
 
-            m.verify(rootKey, verifier.createCheck(), null);
+            verifier.verify();
         });
 
         it("should fail when not all caveats are satisfied", function () {
@@ -707,13 +708,13 @@ describe('verify', function() {
                 .addFirstPartyCaveat('second caveat')
                 .addFirstPartyCaveat('third caveat');
 
-            var verifier = macaroon.newVerifier()
+            var verifier = macaroon.newVerifier(m)
                 .addCaveatCheck(function (cav) { return cav === "first caveat"; })
-                .addCaveatCheck(function (cav) { return cav === "third caveat"; });
+                .addCaveatCheck(function (cav) { return cav === "third caveat"; })
+                .secret(rootKey);
 
-            
             assert.throws(function() {
-                m.verify(rootKey, verifier.createCheck(), null);
+                verifier.verify();
             }, /condition "second caveat" not met/);
         });
 
@@ -724,14 +725,14 @@ describe('verify', function() {
                 .addFirstPartyCaveat('second caveat')
                 .addFirstPartyCaveat('third caveat');
 
-            var verifier = macaroon.newVerifier()
+            var verifier = macaroon.newVerifier(m)
                 .addCaveatCheck(function (cav) { return cav === "extra caveat"; })
                 .addCaveatCheck(function (cav) { return cav === "first caveat"; })
                 .addCaveatCheck(function (cav) { return cav === "second caveat"; })
-                .addCaveatCheck(function (cav) { return cav === "third caveat"; });
+                .addCaveatCheck(function (cav) { return cav === "third caveat"; })
+                .secret(rootKey);
 
-            
-            m.verify(rootKey, verifier.createCheck(), null);
+            verifier.verify();
         });
     });
 });
