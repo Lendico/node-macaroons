@@ -701,6 +701,43 @@ describe('verify', function() {
             verifier.verify();
         });
 
+        it('should verify with discharges correctly', function(done) {
+            var rootKey = 'this is a different super-secret key; never use the same secret twice';
+            var publicIdentifier = "we used our other secret key";
+            var rootLocation = 'http://mybank/';
+
+            var caveatKey = "4; guaranteed random by a fair toss of the dice";
+            var identifier = "this was how we remind auth of key/pred";
+            var thirdPartyLocation = 'http://auth.mybank/'
+
+            var m = macaroon.newMacaroon(rootKey, publicIdentifier, rootLocation)
+                .addFirstPartyCaveat("account = 3735928559")
+                .addThirdPartyCaveat(caveatKey, identifier, 'http://auth.mybank/');
+
+            /*jslint unparam: true */
+            function getDischarge2(loc, thirdPartyLoc, cond, onOK, onErr) {
+                //cond === identifier
+                //thirdPartyLocation === thirdPartyLoc
+                var dischargeMac = macaroon.newMacaroon(caveatKey, identifier, thirdPartyLoc )
+                    .addFirstPartyCaveat("ip = 123456789")
+                onOK(dischargeMac);
+            };
+            
+            macaroon.discharge(m, getDischarge2, function(discharges) {
+                var verifier = macaroon.newVerifier(m)
+                    .discharges(discharges.slice(1))
+                    .addCaveatCheck(function (cav) { return cav === "account = 3735928559"; })
+                    .addCaveatCheck(function (cav) { return cav === "ip = 123456789"; })
+                    .secret(rootKey);
+
+                assert.deepEqual(verifier.isVerified(), true);
+                done();
+                
+            }, function(err) {
+                throw new Error('error callback called unexpectedly: ' + err);
+            });
+        });
+
         describe('isVerified', function () {
 
             it("should should return true if verified", function () {
@@ -735,7 +772,7 @@ describe('verify', function() {
             });
 
 
-        })
+        });
 
         
 
